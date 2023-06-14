@@ -57,16 +57,6 @@ PCD_HandleTypeDef hpcd_USB_FS;
 
 /* USER CODE BEGIN PV */
 
-uint8_t rx_data = 0;
-uint8_t rx_buffer[1460] = {0};
-uint16_t rx_index = 0;
-
-uint8_t mqtt_receive = 0;
-char mqtt_buffer[1460] = {0};
-uint16_t mqtt_index = 0;
-uint8_t connect 		= 0;
-uint8_t signal = 0;
-
 unsigned char mqttMessage_header[127];
 
 int mqttMessageLength_header = 0;
@@ -77,29 +67,8 @@ int mqttMessageLength_body = 0;
 
 int32_t session = 0;
 
-char *  clientId =  "basbousa-ny1023F4D";
-
-const char Signal[]             = "AT+CSQ\r\n";         //check the signal quality.
-const char Imei[]               = "AT+CGSN\r\n";
-const char attach[]             = "AT+CGATT=1\r\n";
-const char attachStatu[]        = "AT+CGATT?\r\n";
-const char apn_ooredoo[]        = "AT+CIPCSGP=1,\"internet.ooredoo.tn\",\"\",\"\"\r\n";
-const char apnStatu[]           = "AT+CSTT?\r\n";
-const char gprscnxn[]           = "AT+CIICR\r\n";
-const char localIp[]            = "AT+CIFSR\r\n";
-const char localIp2[]           = "AT+SAPBR=2,1\r\n";
-const char Connect[]            = "AT+CIPSTART=\"TCP\",\"broker.mqttdashboard.com\",\"1883\"\r\n";
-const char data[]               = "AT+CIPSEND\r\n";
-const char IpStatu[]            = "AT+CIPSTATUS\r\n";
-const char mux[]                = "AT+CIPMUX=0\r\n";
-const char IPR[]                ="AT+IPR=9600\r\n";
-const char GSM[]                ="AT+CSCS=\"GSM\"\r\n";
-const char COPS[]               ="AT+COPS?\r\n";
-const char CREG[]               ="AT+CREG=1\r\n";
-const char confSend[]           ="AT+CIPSPRT=1\r\n";
-const char DataToServer[]       ="Hello Server ...\x1A\r\n";
-const char SenD[]               ="AT+CIPSEND=16\r\n";
-const char TCPClose[]           ="AT+CIPCLOSE\r\n";
+char *  clientId =  "basbousa-ny1023F4D"; //  Chnage with random ID 
+char * topic ="mqttdemo";
 
 
 /* USER CODE END PV */
@@ -116,21 +85,12 @@ static void MX_USART3_UART_Init(void);
 static void MX_USART4_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
-int MQTT_Init(void);
-
-void MQTT_Connect();
 
 void printk(const char *fmt, ...);
 
 void mqtt_connect_message(uint8_t *, char *);
 
 void mqtt_publish_message(uint8_t *, char *, char *);
-
-void mqtt_disconnect_message(uint8_t *);
-
-void sendMQTTMessage(char* clientId, char* topic, char* message);
-void clearRxBuffer(void);
-void clearMqttBuffer(void);
 
 int SIM900_SendCommand(const char *command, char *reply, uint16_t delay);
 
@@ -178,37 +138,24 @@ int main(void)
   MX_USART4_UART_Init();
 
 
+ HAL_Delay(20000);
 
-  //HAL_UART_Receive_DMA (&huart3, rx_buffer, 300);
+	 
+ SIM900_SendCommand("AT\r\n", "OK\r\n", CMD_DELAY); // Check AT	
 
+ SIM900_SendCommand("AT+CGATT=1\r\n", "OK\r\n", CMD_DELAY);  //  AT command is used to attach the device to packet domain service.
 
-  /* USER CODE BEGIN 2 */
+ SIM900_SendCommand("AT+CSTT=\"internet.ooredoo.tn\"", "OK\r\n", 2000); // AT command Set APN  ( Chnage with your APN ) 
 
-  	  //	AT+IPR=115200
+ SIM900_SendCommand("AT+CIICR\r\n", "OK\r\n", CMD_DELAY); // AT command brings up the GPRS
 
-  	//  MQTT_Init();
+ SIM900_SendCommand("AT+CIFSR\r\n", "", CMD_DELAY); // AT command returns the local IP address
 
-  	 HAL_Delay(20000);
+ SIM900_SendCommand("AT+CSQ\r\n", "", CMD_DELAY); // AT command returns the signal strength of the device.
 
-	SIM900_SendCommand("AT\r\n", "OK\r\n", CMD_DELAY);
+ mqttMessageLength_header = 16 + strlen(clientId); 
 
-	SIM900_SendCommand("AT+CGATT=1\r\n", "OK\r\n", CMD_DELAY);
-
-	SIM900_SendCommand("AT+CSTT=\"internet.ooredoo.tn\"", "OK\r\n", 2000);
-
-	SIM900_SendCommand("AT+CIICR\r\n", "OK\r\n", CMD_DELAY);
-
-	SIM900_SendCommand("AT+CIFSR\r\n", "", CMD_DELAY);
-
-	SIM900_SendCommand("AT+CSQ\r\n", "", CMD_DELAY);
-
-
-  	mqttMessageLength_header = 16 + strlen(clientId);
-
-  	mqtt_connect_message(mqttMessage_header, clientId);
-
-  	char * topic ="fakrouna";
-
+ mqtt_connect_message(mqttMessage_header, clientId);
 
   /* USER CODE END 2 */
 
@@ -217,7 +164,6 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-
 
 		  // Connect
 		  SIM900_SendCommand("AT+CIPSTART=\"TCP\",\"broker.mqttdashboard.com\",\"1883\"\r\n","OK\n\r",  2000);
@@ -231,8 +177,7 @@ int main(void)
 
 		  for (int k = 0; k < mqttMessageLength_header; k++) {
 
-					  		HAL_UART_Transmit(&huart3, (uint8_t *)&mqttMessage_header[k], 1, 100);
-					  		// SEND HEADER MQTT
+			HAL_UART_Transmit(&huart3, (uint8_t *)&mqttMessage_header[k], 1, 100); 	  // SEND HEADER MQTT
 		   }
 
 		  uint8_t end_sig = 26;
@@ -245,34 +190,26 @@ int main(void)
 
 		  for( int x=0 ; x < 50; x++){
 
-
-
 				char message[25];
-				sprintf(message,"Fakrouna : %li",session);
+				sprintf(message,"Hello Mqtt : %li",session);
 				session++;
 			  	mqttMessageLength_body = 4 + strlen(topic) + strlen(message);
 
 			  	mqtt_publish_message(mqttMessage_body, topic, message);
 
-			  SIM900_SendCommand("AT+CIPSEND\r\n"," ", CMD_DELAY);
+			        SIM900_SendCommand("AT+CIPSEND\r\n"," ", CMD_DELAY);
 
 				  for (int k = 0; k < mqttMessageLength_body; k++) {
-
 					HAL_UART_Transmit(&huart3, (uint8_t *)&mqttMessage_body[k], 1, 100);
-
 				  }
 
 				  HAL_UART_Transmit(&huart3, &end_sig, 1, 100);
 				  HAL_Delay(100);
 		  }
 
-
-
 		  HAL_Delay(100);
 
-
 		  SIM900_SendCommand("AT+CIPCLOSE\r\n", "", CMD_DELAY);
-
 
 	      HAL_Delay(10000);
 
@@ -620,94 +557,6 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
-int indexof(char *string , int c )
-{
-    return strchr(string, c) !=NULL ? (int)(strchr(string, c ) - string) : -1;
-}
-
-
-char *substring(char *string, int position, int length)
-{
-
-    char *p;
-    int c = 0;
-
-    if(length < 0){
-    p = "0";
-    }else{
-
-    p = malloc(length+1);
-
-    for (c = 0; c < length; c++)
-    {
-        *(p+c) = *(string+position-1);
-        string++;
-    }
-
-    *(p+c) = '\0';
-    }
-
-   return p;
-}
-
-
-
-int MQTT_Init(void)
-{
-
-	connect = 0;
-    int error = 0;
-
-   // HAL_UART_Receive_IT(&huart3, &rx_data, 1);
-
-    error = SIM900_SendCommand("AT\r\n", "OK\r\n", CMD_DELAY);
-
-    error += SIM900_SendCommand("AT+CGATT=1\r\n", "OK\r\n", CMD_DELAY);
-
-
-    error += SIM900_SendCommand("AT+CSTT=\"internet.ooredoo.tn\"", "OK\r\n", CMD_DELAY);
-
-    error += SIM900_SendCommand("AT+CIICR\r\n", "OK\r\n", CMD_DELAY);
-
-    SIM900_SendCommand("AT+CIFSR\r\n", "", CMD_DELAY);
-
-    SIM900_SendCommand("AT+CSQ\r\n", "", CMD_DELAY);
-
-    if (error == 0)
-    {
-    	printk("OK test pass");
-        return error;
-    }
-    else
-    {
-        return error;
-    }
-}
-
-void MQTT_Connect(void){
-
-		/*SIM900_SendCommand(Connect,"OK\n\r",  2000);
-		SIM900_SendCommand(IpStatu,"OK\n\r",  CMD_DELAY);
-		SIM900_SendCommand(data," ",  CMD_DELAY);
-
-
-		mqttMessageLength = 16 + strlen(clientId);
-		printk("\n %d \n",mqttMessageLength);
-		mqtt_connect_message(mqttMessage, clientId);
-
-
-		SIM900_SendCommand((char*)mqttMessage,"",CMD_DELAY);
-
-		 uint8_t end_sig = 26;
-
-
-		  HAL_UART_Transmit(&huart3, &end_sig, 1, 100);
-		  HAL_Delay(2000);
-
-	sendMQTTMessage(clientId,"fakrouna","fakrssssssssssouna");*/
-
-
-}
 
 int SIM900_SendCommand(const char *command, char *reply, uint16_t delay)
 {
@@ -726,73 +575,6 @@ int SIM900_SendCommand(const char *command, char *reply, uint16_t delay)
     return 1;
 }
 
-void clearRxBuffer(void)
-{
-    rx_index = 0;
-    memset(rx_buffer, 0, sizeof(rx_buffer));
-}
-
-
-void clearMqttBuffer(void)
-{
-    mqtt_receive = 0;
-    mqtt_index = 0;
-    memset(mqtt_buffer, 0, sizeof(mqtt_buffer));
-}
-
-
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
-{
-	if (huart == &huart3)
-	{
-		    rx_buffer[rx_index++] = rx_data;
-
-		    if (connect == 0)
-		    {
-		        if (strstr((char *)rx_buffer, "\r\n") != NULL && rx_index == 2)
-		        {
-		            rx_index = 0;
-		        }
-		        else if (strstr((char *)rx_buffer, "\r\n") != NULL)
-		        {
-		            memcpy(mqtt_buffer, rx_buffer, sizeof(rx_buffer));
-		            clearRxBuffer();
-		            if (strstr(mqtt_buffer, "DY CONNECT\r\n"))
-		            {
-		           connect = 0;
-		            }
-		            else if (strstr(mqtt_buffer, "CONNECT\r\n"))
-		            {
-		            connect = 1;
-		            }
-		        }
-		    }
-
-		    if (strstr((char *)rx_buffer, "CLOSED\r\n") || strstr((char *)rx_buffer, "ERROR\r\n") || strstr((char *)rx_buffer, "DEACT\r\n"))
-		    {
-		   connect = 0;
-		    }
-
-		    if (strstr((char *)mqtt_buffer, "+CSQ:") != NULL ) {
-
-		        int start = indexof((char *)mqtt_buffer, ':')   +2;
-		        int end = indexof((char *)mqtt_buffer, ',')  + 1;
-
-		        signal =  atoi( substring((char *)mqtt_buffer,start, (end -start)));
-
-		        printk("%d",signal);
-
-		    }
-
-		    if (rx_index >= sizeof(mqtt_buffer))
-		    {
-		        clearRxBuffer();
-		        clearMqttBuffer();
-		    }
-		    HAL_UART_Receive_IT(&huart3, &rx_data, 1);
-		}
-}
-
 
 void printk(const char *fmt, ...)
 {
@@ -807,102 +589,58 @@ void printk(const char *fmt, ...)
 }
 
 
-void sendMQTTMessage(char* clientId, char* topic, char* message)
-{
-
-
-/*
-
-	HAL_Delay(2000);
-
-
-	HAL_UART_Transmit(&huart3, (uint8_t *)data, strlen(data), 100);
-	HAL_Delay(500);
-
-
-
- mqttMessageLength = 4 + strlen(topic) + strlen(message);
-
- printk("\n %d \n", mqttMessageLength);
- mqtt_publish_message(mqttMessage, topic, message);
-
- for (int k = 0; k < mqttMessageLength; k++) {
-
-		HAL_UART_Transmit(&huart3, (uint8_t *)&mqttMessage[k], 1, 100);
- }
-
-
- uint8_t end_sig = 26;
-
-
-  HAL_UART_Transmit(&huart3, &end_sig, 1, 100);
-  HAL_Delay(2000);
-
-  HAL_UART_Transmit(&huart3, (uint8_t *)TCPClose, strlen(TCPClose), 100);
-  HAL_Delay(500);
-*/
-
-}
-
-
 void mqtt_connect_message(uint8_t * mqtt_message, char * client_id) {
 
-uint8_t i = 0;
-uint8_t client_id_length = strlen(client_id);
+	uint8_t i = 0;
+	uint8_t client_id_length = strlen(client_id);
 
-mqtt_message[0] = 16;                      // MQTT Message Type CONNECT
-mqtt_message[1] = 14 + client_id_length;   // Remaining length of the message
+	mqtt_message[0] = 16;                      // MQTT Message Type CONNECT
+	mqtt_message[1] = 14 + client_id_length;   // Remaining length of the message
 
-mqtt_message[2] = 0;                       // Protocol Name Length MSB
-mqtt_message[3] = 6;                       // Protocol Name Length LSB
-mqtt_message[4] = 77;                      // ASCII Code for M
-mqtt_message[5] = 81;                      // ASCII Code for Q
-mqtt_message[6] = 73;                      // ASCII Code for I
-mqtt_message[7] = 115;                     // ASCII Code for s
-mqtt_message[8] = 100;                     // ASCII Code for d
-mqtt_message[9] = 112;                     // ASCII Code for p
-mqtt_message[10] = 3;                      // MQTT Protocol version = 3
-mqtt_message[11] = 2;                      // conn flags
-mqtt_message[12] = 0;                      // Keep-alive Time Length MSB
-mqtt_message[13] = 15;                     // Keep-alive Time Length LSB
+	mqtt_message[2] = 0;                       // Protocol Name Length MSB
+	mqtt_message[3] = 6;                       // Protocol Name Length LSB
+	mqtt_message[4] = 77;                      // ASCII Code for M
+	mqtt_message[5] = 81;                      // ASCII Code for Q
+	mqtt_message[6] = 73;                      // ASCII Code for I
+	mqtt_message[7] = 115;                     // ASCII Code for s
+	mqtt_message[8] = 100;                     // ASCII Code for d
+	mqtt_message[9] = 112;                     // ASCII Code for p
+	mqtt_message[10] = 3;                      // MQTT Protocol version = 3
+	mqtt_message[11] = 2;                      // conn flags
+	mqtt_message[12] = 0;                      // Keep-alive Time Length MSB
+	mqtt_message[13] = 15;                     // Keep-alive Time Length LSB
+	mqtt_message[14] = 0;                      // Client ID length MSB
+	mqtt_message[15] = client_id_length;       // Client ID length LSB
 
+	// Client ID
+	for(i = 0; i < client_id_length + 16; i++){
 
-mqtt_message[14] = 0;                      // Client ID length MSB
-mqtt_message[15] = client_id_length;       // Client ID length LSB
-
-// Client ID
-for(i = 0; i < client_id_length + 16; i++){
-mqtt_message[16 + i] = client_id[i];
-}
+		mqtt_message[16 + i] = client_id[i];
+	}
 
 }
 
 void mqtt_publish_message(uint8_t * mqtt_message, char * topic, char * message) {
 
-uint8_t i = 0;
-uint8_t topic_length = strlen(topic);
-uint8_t message_length = strlen(message);
+	uint8_t i = 0;
+	uint8_t topic_length = strlen(topic);
+	uint8_t message_length = strlen(message);
 
-mqtt_message[0] = 48;                                  // MQTT Message Type CONNECT
-mqtt_message[1] = 2 + topic_length + message_length;   // Remaining length
-mqtt_message[2] = 0;                                   // MQTT Message Type CONNECT
-mqtt_message[3] = topic_length;                        // MQTT Message Type CONNECT
+	mqtt_message[0] = 48;                                  // MQTT Message Type CONNECT
+	mqtt_message[1] = 2 + topic_length + message_length;   // Remaining length
+	mqtt_message[2] = 0;                                   // MQTT Message Type CONNECT
+	mqtt_message[3] = topic_length;                        // MQTT Message Type CONNECT
 
-// Topic
-for(i = 0; i < topic_length; i++){
-mqtt_message[4 + i] = topic[i];
-}
+	// Topic
+	for(i = 0; i < topic_length; i++){
+		mqtt_message[4 + i] = topic[i];
+	}
 
-// Message
-for(i = 0; i < message_length; i++){
-mqtt_message[4 + topic_length + i] = message[i];
-}
+	// Message
+	for(i = 0; i < message_length; i++){
+		mqtt_message[4 + topic_length + i] = message[i];
+	}
 
-}
-
-void mqtt_disconnect_message(uint8_t * mqtt_message) {
-	mqtt_message[0] = 0xE0; // msgtype = connect
-	mqtt_message[1] = 0x00; // length of message (?)
 }
 
 /* USER CODE END 4 */
