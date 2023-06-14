@@ -1,6 +1,9 @@
-# MQTT Implementation via AT Command for SIM900 and STM32
+# MQTT Implementation via simples AT Commands 
 
 This repository provides an example implementation of MQTT (Message Queuing Telemetry Transport) protocol for STM32 microcontrollers using the SIM900 module through AT commands. MQTT is a lightweight messaging protocol commonly used in IoT (Internet of Things) applications to enable communication between devices.
+
+| :memo:        | In this example, a Stm32 microcontroller is used, but it can be replaced with any other microcontroller (Arduino,Pic, NXP)  As is the case with the GSLM/GPRS model SIM900, You can change the model with any other supports AT commands and TCP    |
+|---------------|:------------------------|
 
 ## Features
 
